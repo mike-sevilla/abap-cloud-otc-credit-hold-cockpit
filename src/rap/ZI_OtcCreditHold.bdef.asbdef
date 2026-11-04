@@ -1,0 +1,76 @@
+managed implementation in class zbp_i_otccredithold unique;
+strict ( 2 );
+with draft;
+
+define behavior for ZI_OtcCreditHold alias CreditHold
+persistent table zotc_cr_hold
+draft table zotc_cr_hold_d
+lock master total etag LastChangedAt
+authorization master ( global, instance )
+etag master LocalLastChangedAt
+{
+  create;
+  update ( features : instance );
+
+  field ( numbering : managed, readonly ) HoldUuid;
+  field ( mandatory : create ) SalesOrder, CustomerId, OrderNetAmount;
+  field ( readonly : update ) SalesOrder, CustomerId;
+  field ( readonly ) CustomerName, CreditLimit, OpenReceivables, UtilizationPct, HoldReason,
+                     HeldOn, Status, DecisionNote, DecidedBy, DecidedAt, LocalCreatedBy, LocalCreatedAt,
+                     LocalLastChangedBy, LocalLastChangedAt, LastChangedAt;
+
+  action ( features : instance, authorization : instance ) releaseHold parameter ZA_OtcDecision result [1] $self;
+  action ( features : instance ) rejectHold parameter ZA_OtcDecision result [1] $self;
+  action ( features : instance ) escalateHold parameter ZA_OtcDecision result [1] $self;
+
+  determination onCreate on modify { create; }
+  determination enrichCredit on modify { create; field CustomerId, OrderNetAmount; }
+
+  validation validateAmount on save { create; field OrderNetAmount; }
+  validation validateCustomer on save { create; field CustomerId; }
+  validation validateUniqueOrder on save { create; field SalesOrder; }
+
+
+  side effects
+  {
+    field CustomerId affects field CustomerName, field CreditLimit,
+                             field OpenReceivables, field UtilizationPct, field HoldReason;
+
+    field OrderNetAmount affects field UtilizationPct, field HoldReason;
+
+  }
+
+  draft action Edit;
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Resume;
+  draft determine action Prepare {
+    validation validateAmount;
+    validation validateCustomer;
+    validation validateUniqueOrder;
+  }
+
+  mapping for zotc_cr_hold
+  {
+    HoldUuid           = hold_uuid;
+    SalesOrder         = sales_order;
+    CustomerId         = customer_id;
+    CustomerName       = customer_name;
+    OrderNetAmount     = order_net_amount;
+    CreditLimit        = credit_limit;
+    OpenReceivables    = open_receivables;
+    Currency           = currency;
+    UtilizationPct     = utilization_pct;
+    HoldReason         = hold_reason;
+    HeldOn             = held_on;
+    Status             = status;
+    DecisionNote       = decision_note;
+    DecidedBy          = decided_by;
+    DecidedAt          = decided_at;
+    LocalCreatedBy     = local_created_by;
+    LocalCreatedAt     = local_created_at;
+    LocalLastChangedBy = local_last_changed_by;
+    LocalLastChangedAt = local_last_changed_at;
+    LastChangedAt      = last_changed_at;
+  }
+}
